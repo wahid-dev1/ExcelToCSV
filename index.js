@@ -1,99 +1,115 @@
 var xlsx = require('node-xlsx');
 var fs = require('fs');
 const express = require('express')
-const session = require("express-session")
-const flash = require("connect-flash")
+const path = require('path');
+const { convertCsvToXlsx } = require('@aternus/csv-to-xlsx');
 const app = express()
+var cors = require('cors')
+app.use(cors())
 const port = 7000
-const store=require('store')
+if (typeof localStorage === "undefined" || localStorage === null) {
+  var LocalStorage = require('node-localstorage').LocalStorage;
+  localStorage = new LocalStorage('./scratch');
+}
+
 app.use(express.json({extended: true}));
 app.use(express.urlencoded());
-app.use(session({
-    secret: "Hi",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        maxAge:1000*5
-    }
-    //* maxAge: verilen cookienin ne kadar zaman sonra kendisini ihma etmesini söylüyor
-    //* saniye cinsinden verdik 
-}))
-app.use(flash());
-app.set('view engine', 'ejs')
-app.use(express.static(__dirname + '/public'));
 
-app.post('/setdir', (req, res) => {
-        store.set("excel",req.body.excel_dir)
-        store.set("csv",req.body.csv_dir)
-        res.redirect("/");
+app.use(express.static('./build'));
+app.post('/create', (req, res) => {
+       let data=localStorage.getItem('company')
+       if(data){
+        data=JSON.parse(data)
+        data.push(req.body)
+        localStorage.setItem('company',JSON.stringify(data))
+       }else{
+        data=[]
+        data.push(req.body)
+        localStorage.setItem('company',JSON.stringify(data))
+       }
+       res.send({
+        data:JSON.parse(localStorage.getItem('company'))
+       })
 })
-app.get('/', (req, res) => {
-   
-    res.render('pages/index.ejs',{
-        excel:store.get('excel')||"",
-        csv:store.get('csv')||"",
-        message:req.flash('message')
-    })
+app.get('/',(req,res)=>{
+  res.sendFile(path.join(process.cwd(),'./','build/index.html'))
+})
+app.get('/getCompanies', (req, res) => {
+  
+   let data=localStorage.getItem('company')
+   res.send({
+    data:JSON.parse(localStorage.getItem('company')||'[]')})
 })
 app.post('/convert',(req,res)=>{
-    fs.readdir(store.get('excel'), (err, files) => {
+    let data=req.body.data
+    let t=true
+    data.map((item,i)=>{
+      fs.readdir(item.csv, (err, files) => {
         if(err) {
             console.log(err)
-              req.flash("message","Error")
-              res.redirect("/"); 
+            
+              res.status(500).send({})
                return
           }
-        if(files.length==0){
-            req.flash("message","Error")
-            res.redirect("/"); 
-             return 
-        }  
-        files.forEach((file,index) => {
-            if(file.split('.')[1]=="xlsx"){
-              
-              var obj = xlsx.parse(store.get('excel')+"/"+file); // parses a file
-              var rows = [];
-              var writeStr = "";
-              
-              //looping through all sheets
-              for(var i = 0; i < obj.length; i++)
-              {
-                  var sheet =obj[i];
-                  //loop through all rows in the sheet
-                  for(var j = 0; j < sheet['data'].length; j++)
-                  {
-                          //add the row to the rows array
-                          rows.push(sheet['data'][j]);
-                  }
-              }
-              
-              //creates the csv string to write it to a file
-              for(var i = 0; i < rows.length; i++)
-              {
-                  writeStr += rows[i].join(",") + "\n";
-              }
-              
-              //writes to a file, but you will presumably send the csv as a      
-              //response instead
-              fs.writeFile(store.get('csv') +"/"+file.split(".")[0]+".csv", writeStr, function(err) {
-                  if(err) {
-                    console.log(err)
-                      req.flash("message","Error")
-                      res.redirect("/"); 
-                       return
-                  }
-                 if(index==files.length-1){
-                    req.flash("message","Success")
-                    res.redirect("/");              
-                 }    
+          files.forEach((file,index) => {
+            if(file.split('.')[1]=="csv"){
+              let source = path.join(item.csv, file);
+              let destination = path.join(item.excel, file.split('.')[0]+'.xlsx');
+              fs.unlink(destination,(err)=>{
+                try {
+                  let inboxFolders={
+                  Payables:'ImportAPInvoices',
+                  Vendors:'ImportAPVendors',
+                  Customer:'ImportARCustomers',
+                  Projects:'ImportARCustomerShipTos',
+                  Invoicing:'ImportARInvoices'
+                }
+                  convertCsvToXlsx(source, destination);
+                  const filePath =destination
+                  let copy = path.join(destination,'../../')
+                  copy=copy+'inbox\\'+inboxFolders[file.split('.')[0].split(' ')[0]]+
+                   '\\'+file.split('.')[0]+'.xlsx'
                   
-              });
+                 
+                  fs.copyFile(filePath, copy, (error) => {
+                    if (error) {
+                        
+                        } else {
+                          fs.unlink(source,(err)=>{
+                            console.log(err)
+                         })
+                          console.log('File has been moved to another folder.')
+                              }
+                              })
+                } catch (e) {
+                }
+              }) 
             }
-          });
-      });
-      
-  });
+            })}
+            )
+            if(i==data.length-1){
+              if(t){
+                res.send({})
+                t=false
+                return
+              }
+            }    
+    })
+   
+     
 
+  });
+app.get('/remove',(req,res)=>{
+  let data=JSON.parse(localStorage.getItem('company')||[])
+  let index=req.query.index
+ 
+  data.splice(index, 1)
+
+  localStorage.setItem('company',JSON.stringify(data))
+  res.send({
+    data:data
+  })
+})
 app.listen(port, () => {
   console.log(`App listening at port ${port}`)
 })
