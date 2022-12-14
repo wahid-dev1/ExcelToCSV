@@ -78,6 +78,9 @@ app.post('/convert',(req,res)=>{
                           fs.unlink(source,(err)=>{
                             console.log(err)
                          })
+                         fs.unlink(destination,(err)=>{
+                          console.log(err)
+                       })
                           console.log('File has been moved to another folder.')
                               }
                               })

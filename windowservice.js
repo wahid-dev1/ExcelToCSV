@@ -2,7 +2,7 @@
 const windowService=require('node-windows').Service
 
 const svc=new windowService({
-    name:'AGS Excel To CSV',
+    name:'AGS CSV To Excel',
     description:'Server created by AGS Advanced Inc',
     script:__dirname+"/index.js"
 })
