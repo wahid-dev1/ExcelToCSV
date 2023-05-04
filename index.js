@@ -44,9 +44,10 @@ app.post('/convert',(req,res)=>{
     let data=req.body.data
     let t=true
     data.map((item,i)=>{
+     
       fs.readdir(item.csv, (err, files) => {
         if(err) {
-            console.log(err)
+            
             
               res.status(500).send({})
                return
@@ -55,25 +56,31 @@ app.post('/convert',(req,res)=>{
             if(file.split('.')[1]=="csv"){
               let source = path.join(item.csv, file);
               let destination = path.join(item.excel, file.split('.')[0]+'.xlsx');
+             
               fs.unlink(destination,(err)=>{
+               
                 try {
                   let inboxFolders={
-                  Payables:'ImportAPInvoices',
-                  Vendors:'ImportAPVendors',
-                  Customer:'ImportARCustomers',
-                  Projects:'ImportARCustomerShipTos',
-                  Invoicing:'ImportARInvoices'
+                  APInvoices:'ImportAPInvoices',
+                  APVendors:'ImportAPVendors',
+                  ARCustomers:'ImportARCustomers',
+                  ShipTo:'ImportARCustomerShipTos',
+                  ARInvoices:'ImportARInvoices'
                 }
-                  convertCsvToXlsx(source, destination);
+                  convertCsvToXlsx(source, destination,{
+                    overwrite:true
+                  });
                   const filePath =destination
+                  console.log(filePath)
                   let copy = path.join(destination,'../../')
+                  
                   copy=copy+'inbox\\'+inboxFolders[file.split('.')[0].split(' ')[0]]+
                    '\\'+file.split('.')[0]+'.xlsx'
-                  
+                  console.log(copy)
                  
                   fs.copyFile(filePath, copy, (error) => {
                     if (error) {
-                        
+                        console.log(error)
                         } else {
                           fs.unlink(source,(err)=>{
                             console.log(err)
@@ -85,6 +92,7 @@ app.post('/convert',(req,res)=>{
                               }
                               })
                 } catch (e) {
+                  console.log(e)
                 }
               }) 
             }
