@@ -64,7 +64,7 @@ app.post('/convert',(req,res)=>{
                   APInvoices:'ImportAPInvoices',
                   APVendors:'ImportAPVendors',
                   ARCustomers:'ImportARCustomers',
-                  ShipTo:'ImportARCustomerShipTos',
+                  ARCustomerShipTo:'ImportARCustomerShipTos',
                   ARInvoices:'ImportARInvoices'
                 }
                   convertCsvToXlsx(source, destination,{
