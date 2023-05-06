@@ -40,76 +40,58 @@ app.get('/getCompanies', (req, res) => {
    res.send({
     data:JSON.parse(localStorage.getItem('company')||'[]')})
 })
-app.post('/convert',(req,res)=>{
-    let data=req.body.data
-    let t=true
-    data.map((item,i)=>{
-     
-      fs.readdir(item.csv, (err, files) => {
-        if(err) {
-            
-            
-              res.status(500).send({})
-               return
-          }
-          files.forEach((file,index) => {
-            if(file.split('.')[1]=="csv"){
-              let source = path.join(item.csv, file);
-              let destination = path.join(item.excel, file.split('.')[0]+'.xlsx');
-             
-              fs.unlink(destination,(err)=>{
-               
-                try {
-                  let inboxFolders={
-                  APInvoices:'ImportAPInvoices',
-                  APVendors:'ImportAPVendors',
-                  ARCustomers:'ImportARCustomers',
-                  ARCustomerShipTo:'ImportARCustomerShipTos',
-                  ARInvoices:'ImportARInvoices'
-                }
-                  convertCsvToXlsx(source, destination,{
-                    overwrite:true
-                  });
-                  const filePath =destination
-                  console.log(filePath)
-                  let copy = path.join(destination,'../../')
-                  
-                  copy=copy+'inbox\\'+inboxFolders[file.split('.')[0].split(' ')[0]]+
-                   '\\'+file.split('.')[0]+'.xlsx'
-                  console.log(copy)
-                 
-                  fs.copyFile(filePath, copy, (error) => {
-                    if (error) {
-                        console.log(error)
-                        } else {
-                          fs.unlink(source,(err)=>{
-                            console.log(err)
-                         })
-                         fs.unlink(destination,(err)=>{
-                          console.log(err)
-                       })
-                          console.log('File has been moved to another folder.')
-                              }
-                              })
-                } catch (e) {
-                  console.log(e)
-                }
-              }) 
-            }
-            })}
-            )
-            if(i==data.length-1){
-              if(t){
-                res.send({})
-                t=false
-                return
-              }
-            }    
-    })
-   
-     
+app.post('/convert', async (req, res) => {
+  let data = req.body.data;
+  let t = true;
 
-  });
+  for (let i = 0; i < data.length; i++) {
+    try {
+      let item = data[i];
+      let files = await fs.promises.readdir(item.csv);
+   
+      for (let j = 0; j < files.length; j++) {
+        let file = files[j];
+        if (file.split('.')[1] === 'csv') {
+          let source = path.join(item.csv, file);
+          let destination = path.join(item.excel, file.split('.')[0] + '.xlsx');
+         
+          let inboxFolders = {
+            APInvoices: 'ImportAPInvoices',
+            APVendors: 'ImportAPVendors',
+            ARCustomers: 'ImportARCustomers',
+            ARCustomerShipTo: 'ImportARCustomerShipTos',
+            ARInvoices: 'ImportARInvoices'
+          };
+          convertCsvToXlsx(source, destination, {
+            overwrite: true
+          });
+          const filePath = destination;
+          console.log(filePath);
+          let copy = path.join(destination, '../../');
+          copy = copy + 'inbox\\' + inboxFolders[file.split('.')[0].split(' ')[0]] +
+            '\\' + file.split('.')[0] + '.xlsx';
+          console.log(copy);
+          await fs.promises.copyFile(filePath, copy);
+          await fs.promises.unlink(source);
+          await fs.promises.unlink(destination);
+          console.log('File has been moved to another folder.');
+        }
+      }
+    } catch (error) {
+       console.log(error.message);
+      res.status(400).send({error:error.message});
+      return;
+    }
+  }
+
+  if (t) {
+    res.send({});
+    t = false;
+    return;
+  }
+});
+
+
 app.get('/remove',(req,res)=>{
   let data=JSON.parse(localStorage.getItem('company')||[])
   let index=req.query.index
